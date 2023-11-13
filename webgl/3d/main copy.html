@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rolling</title>
+  <style>
+    body {
+      margin: 0;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    .wrapper {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrapper">
+    <div id="inputContainer">
+      <h1>Rolling game</h1>
+      <label for="numCylinders">Enter the number of cylinders:</label>
+      <input type="number" id="numCylinders" value="1">
+      <br>
+      <label for="numCones">Enter the number of cones:</label>
+      <input type="number" id="numCones" value="1">
+      <p>Move blue ball with arrow key</p>
+      <p>If the ball falls, you can press the 'r' key to recall it again. Press the 'q' key to restart.
+      </p>
+      <br>
+
+      <button onclick="createScene()">Create Scene</button>
+    </div>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    let numCylinders = 1;
+    const cylinders = [];
+    let numCones = 1;
+    const cones = [];
+    let rollLeft = false;
+    let rollRight = false;
+    let rollFar = false;
+    let rollNear = false;
+
+    // Function to create cylinders
+    function createCylinders(scene) {
+      for (let i = 0; i < numCylinders; i++) {
+        const cylinderGeometry = new THREE.CylinderGeometry(1.0, 1.0, getRandomHeight(), 100); // RadiusTop, RadiusBottom, Height
+        const cylinderMaterial = new THREE.MeshPhongMaterial({ color: 0xff0000 }); // Red color for the cylinder
+        const cylinder = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
+        cylinder.position.set(getRandomPosition(), 0, getRandomPosition()); // Set a random position for the cylinder
+        cylinder.castShadow = true; // Enable casting shadows for the cylinder
+        scene.add(cylinder);
+        cylinders.push(cylinder);
+      }
+    }
+
+    // Function to create cones
+    function createCones(scene) {
+      for (let i = 0; i < numCones; i++) {
+        const coneGeometry = new THREE.CylinderGeometry(0, 2, getRandomHeight(), 100);
+        const coneMaterial = new THREE.MeshPhongMaterial({ color: 0xffff00 });
+        const cone = new THREE.Mesh(coneGeometry, coneMaterial);
+        cone.position.set(getRandomPosition(), 0, getRandomPosition());
+        cone.castShadow = true;
+        scene.add(cone);
+        cones.push(cone);
+      }
+    }
+
+
+    function getRandomPosition() {
+      return Math.random() * 50 - 25;
+    }
+
+    function getRandomHeight() {
+      return Math.random() * 30 + 10;
+    }
+
+
+    // collisions with cylinder
+    function handleCollisions(sphere) {
+      for (let i = 0; i < cylinders.length; i++) {
+        const cylinder = cylinders[i];
+        if (sphere.position.distanceTo(cylinder.position) < 2) {
+          const direction = new THREE.Vector3().subVectors(cylinder.position, sphere.position).normalize();
+          const distance = 2 - sphere.position.distanceTo(cylinder.position);
+          cylinder.position.addScaledVector(direction, distance);
+        }
+      }
+    }
+
+    // collisions with cones
+    function handleCollisions2(sphere) {
+      for (let i = 0; i < cones.length; i++) {
+        const cone = cones[i];
+        if (sphere.position.distanceTo(cone.position) < 2) {
+          const direction = new THREE.Vector3().subVectors(cone.position, sphere.position).normalize();
+          const distance = 2 - sphere.position.distanceTo(cone.position);
+          cone.position.addScaledVector(direction, distance);
+        }
+      }
+    }
+
+    // collisions between cylinder and cones
+    function handleCollisions3(cylinder) {
+      for (let i = 0; i < cones.length; i++) {
+        const cone = cones[i];
+        if (cylinder.position.distanceTo(cone.position) < 2) {
+          const direction = new THREE.Vector3().subVectors(cone.position, cylinder.position).normalize();
+          const distance = 2 - cylinder.position.distanceTo(cone.position);
+          cone.position.addScaledVector(direction, distance);
+        }
+      }
+    }
+
+    function handleCylinderCollisions() {
+      for (let i = 0; i < numCylinders; i++) {
+        for (let j = i + 1; j < numCylinders; j++) {
+          const cylinder1 = cylinders[i];
+          const cylinder2 = cylinders[j];
+
+          
+          if (cylindersIntersect(cylinder1, cylinder2)) {
+            const direction = new THREE.Vector3().subVectors(cylinder1.position, cylinder2.position).normalize();
+            const overlapDistance = getOverlapDistance(cylinder1, cylinder2);
+            const displacement = direction.multiplyScalar(overlapDistance / 2);
+            cylinder1.position.add(displacement);
+            cylinder2.position.sub(displacement);
+          }
+        }
+      }
+    }
+
+    function cylindersIntersect(cylinder1, cylinder2) {
+      // intersect based on their dimensions
+      const distance = cylinder1.position.distanceTo(cylinder2.position);
+      const combinedRadius = cylinder1.geometry.parameters.radiusTop + cylinder2.geometry.parameters.radiusTop;
+      return distance < combinedRadius;
+    }
+
+    function getOverlapDistance(cylinder1, cylinder2) {
+      //overlap distance between the two cylinders
+      const distance = cylinder1.position.distanceTo(cylinder2.position);
+      const combinedRadius = cylinder1.geometry.parameters.radiusTop + cylinder2.geometry.parameters.radiusTop;
+      return combinedRadius - distance;
+    }
+
+
+    let rotateAxis = new THREE.Vector3();
+    // Function to handle keydown event
+    function onKeyDown(event) {
+      //convert into lower case
+      const key = event.key.toLowerCase();
+      // Set rolling direction based on arrow key pressed
+      if (key === "arrowleft") {
+        rollFar = false;
+        rollNear = true;
+        rotateAxis.set(0, 1, 0);
+      } else if (key === "arrowright") {
+        rollFar = true;
+        rollNear = false;
+        rotateAxis.set(0, -1, 0);
+      } else if (key === "arrowup") {
+        rollLeft = false;
+        rollRight = true;
+        rotateAxis.set(1, 0, 0);
+      } else if (key === "arrowdown") {
+        rollLeft = true;
+        rollRight = false;
+        rotateAxis.set(-1, 0, 0);
+      } else if (key === "r") {
+        resetSpherePosition();
+      } else if (key === "q") {
+        location.reload(true);
+      }
+
+    }
+
+    // reset sphere position
+    function resetSpherePosition() {
+      sphere.position.set(0, 0, 0); // Set sphere position to the original position
+    }
+
+    var sphere;
+    //create the scene
+    function createScene() {
+      numCylinders = parseInt(document.getElementById("numCylinders").value);
+      numCones = parseInt(document.getElementById("numCones").value);
+      const inputContainer = document.getElementById("inputContainer");
+      inputContainer.style.display = "none";
+      // Set up the scene
+      const myScene = new THREE.Scene();
+
+      // Set up the camera
+      const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 40, 0); // camera position
+      camera.lookAt(0, 0, 0); // Make the camera look at the (0,0,0)
+
+      // Set three renderer with shadowMap, antialias
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true; // Enable shadowMap
+      document.body.appendChild(renderer.domElement);
+
+      //sphere(ball)
+      const geometry = new THREE.SphereGeometry(1, 32, 32);
+      const material = new THREE.MeshStandardMaterial({ color: 0x00aaff, roughness: 0.2, metalness: 0.9 }); //3d-sphere
+      sphere = new THREE.Mesh(geometry, material);
+      sphere.castShadow = true; //casting shadows
+      myScene.add(sphere);
+
+      //floor
+      const floorGeometry = new THREE.PlaneGeometry(50, 50); // Make the floor
+      const floorMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff }); // White color for the floor
+      const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+      //initialize floor
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.y = -1; // Position the floor at y = -1
+      floor.receiveShadow = true; //shadows for the floor (just in case)
+      myScene.add(floor);
+
+      // global light
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); //white
+      myScene.add(ambientLight);
+
+      //ligth for each object
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      const lightDistance = 10; // Distance
+      directionalLight.position.set(lightDistance, camera.position.y, 0); // Move the light to the right side
+      directionalLight.target.position.set(0, -1, 0);
+      directionalLight.castShadow = true; //casting shadows for the light
+      myScene.add(directionalLight);
+
+      // Set up shadow
+      directionalLight.shadow.mapSize.width = 8192;
+      directionalLight.shadow.mapSize.height = 8192;
+      directionalLight.shadow.camera.near = 0.5;
+      directionalLight.shadow.camera.far = 50;
+      directionalLight.shadow.camera.left = -50;
+      directionalLight.shadow.camera.right = 50;
+      directionalLight.shadow.camera.top = -50;
+      directionalLight.shadow.camera.bottom = 50;
+
+      // cylinders
+      createCylinders(myScene);
+      // cones
+      createCones(myScene);
+      //event listeners for keydown
+      document.addEventListener("keydown", onKeyDown);
+      const rotationSpeed = 0.03;
+
+      
+      //loop
+      function animate() {
+        requestAnimationFrame(animate);
+
+        handleCollisions(sphere);
+        handleCollisions2(sphere);
+        for (let i = 0; i < numCylinders; i++) {
+          handleCollisions3(cylinders[i]);
+        }
+        handleCylinderCollisions();
+        for (let i = 0; i < numCones; i++) {
+          if (cones[i].position.x > 26 || cones[i].position.z > 26 || cones[i].position.z < -26 || cones[i].position.x < -26) {
+            cones[i].position.y -= 0.1;
+          }
+
+        }
+
+        for (let i = 0; i < numCylinders; i++) {
+          if (cylinders[i].position.x > 26 || cylinders[i].position.z > 26 || cylinders[i].position.z < -26 || cylinders[i].position.x < -26) {
+            cylinders[i].position.y -= 0.1;
+          }
+
+        }
+
+        if (sphere.position.x > 26 || sphere.position.z > 26 || sphere.position.z < -26 || sphere.position.x < -26) {
+          sphere.position.y -= 0.1;
+          rollLeft = rollRight = rollFar = rollNear = false;
+        } else if (rollLeft) {
+          sphere.position.z += 0.05;
+        } else if (rollRight) {
+          sphere.position.z -= 0.05;
+        }
+        if (rollFar) {
+          sphere.position.x += 0.05;
+        } else if (rollNear) {
+          sphere.position.x -= 0.05;
+        }
+
+        // Update light position to move around the sphere
+        directionalLight.position.set(
+          Math.cos(Date.now() * 0.001) * lightDistance,
+          camera.position.y,
+          Math.sin(Date.now() * 0.001) * lightDistance
+        );
+
+        // Rotate the ball depends on the key value
+        sphere.rotateOnWorldAxis(rotateAxis, rotationSpeed);
+
+        renderer.render(myScene, camera);
+      }
+      animate();
+    }
+  </script>
+</body>
+
+</html>

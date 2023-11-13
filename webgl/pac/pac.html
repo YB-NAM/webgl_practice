@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script type="text/javascript" src="webgl-utils.js"></script>
+    <script type="text/javascript" src="initShaders.js"></script>
+    <script type="text/javascript" src="MV.js"></script>
+    <script type="text/javascript" src="pac.js"></script>
+	
+	<style>
+		canvas{
+			background:rgb(194, 194, 194);
+			margin-left: 50px;
+		}
+		.top {
+  			display: flex;
+		}
+
+		.top p {
+			margin-left: 50px; 
+  			margin-right: 400px; 
+			margin-bottom: 0px; 
+			font-size: 20px;
+			color:white;
+		}
+		.top canvas {
+  			display: block;
+		}
+		#main{
+			width: 600px;
+			height: 700px;
+			background-color: rgb(56, 56, 56);
+		}
+		h1{
+			margin-top: 0px;
+			margin-left: 50px;
+			color:white;
+		}
+
+	</style>
+	
+	<script type="vertext_shader" id="vs">
+		attribute vec2 a_position;
+     
+    	uniform vec2 u_resolution;
+    	uniform float x;
+    	uniform float y;
+    
+    	void main() {
+      		vec2 zeroToOne = a_position / u_resolution;
+     
+      		vec2 zeroToTwo = zeroToOne * 2.0;
+     
+      		vec2 clipSpace = zeroToTwo - 1.0;
+     
+      		gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1) + vec4(x,y,0,0);
+    	}
+	</script>
+	
+	<script type="fragment_shader" id="fs">
+		precision mediump float;
+         
+        uniform vec4 u_color;
+          
+        void main() {
+          gl_FragColor = u_color;
+        }
+	</script>
+</head>
+
+<body>
+	<div id="main">
+		<div class="top">
+		
+			<p id="timer" style="float: top-left;">60</p>
+			<p id="score" style="float: top-right;">0</p>
+		</div>
+    	<canvas id="pacman-canvas" width="500" height="600"></canvas>
+		<h1 id="msg" >Press 's' to start</h1>
+		
+	</div>
+</body>
+</html>
